@@ -1,36 +1,82 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# OL Renditions tests
 
-## Getting Started
+A small Next.js app that loads a [Frontify](https://www.frontify.com/) library over GraphQL and runs local checks on masters and renditions (PSD/TIF/PNG/JPEG rules, JPEG white-border sampling, and similar suites).
 
-First, run the development server:
+---
+
+## Prerequisites
+
+- [Node.js](https://nodejs.org/) 20 or newer (matches this repo’s tooling)
+- A Frontify brand with API access and a **personal access token** (or OAuth bearer) that can query the library and read assets
+
+---
+
+## 1. Clone and install
+
+```bash
+git clone <your-repo-url>
+cd "OL Renditions tests"
+npm install
+```
+
+---
+
+## 2. Environment variables
+
+Copy the example file and edit the values:
+
+```bash
+cp .env.example .env
+```
+
+Open `.env` and set:
+
+| Variable | Required | What to put |
+|----------|----------|-------------|
+| `FRONTIFY_GRAPHQL_URL` | Yes | Your brand’s **full GraphQL API URL** (the endpoint you use for Frontify’s GraphQL API, not the marketing site). |
+| `FRONTIFY_ACCESS_TOKEN` | Yes | **Bearer token** — same value you’d send as `Authorization: Bearer …`. Used for GraphQL and for downloading previews when a suite needs image bytes. |
+| `FRONTIFY_LIBRARY_ID` | Yes | Numeric **library ID** to scan: a **positive integer** (digits only, e.g. `23`). |
+
+Save the file. Next.js reads `.env` automatically for `npm run dev` and `npm run build`.
+
+> **Security:** Do not commit `.env`. It is gitignored; keep tokens out of the repo and rotate them if they leak.
+
+---
+
+## 3. Run the app
+
+**Development** (hot reload):
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000). If `FRONTIFY_LIBRARY_ID` is missing, the page tells you to set it before the checker UI appears.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+**Production build** (optional):
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run build
+npm start
+```
 
-## Learn More
+---
 
-To learn more about Next.js, take a look at the following resources:
+## 4. Using the checker
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+1. Confirm the header shows the library ID from `.env`.
+2. Open **Run configuration** and turn individual **suites** on or off.
+3. Click **Run check**. Progress streams from the server; when it finishes, use the tabs to review each suite and any failing assets.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Suite toggles only affect what runs on the next request; the target library always comes from `FRONTIFY_LIBRARY_ID`.
 
-## Deploy on Vercel
+---
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Scripts
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+| Command | Purpose |
+|---------|---------|
+| `npm run dev` | Local development server |
+| `npm run build` | Production build |
+| `npm run start` | Serve the production build |
+| `npm run lint` | ESLint |
