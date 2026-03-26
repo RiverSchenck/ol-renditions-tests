@@ -8,6 +8,8 @@ import {
   CheckCircle2,
   ClipboardList,
   Clock,
+  GitCompare,
+  Globe,
   Image as ImageLucide,
   ImageIcon,
   Images,
@@ -28,8 +30,10 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
+import type { EvaluateCountryMetadataTargetsRulesResult } from "@/lib/rules/country-metadata-targets"
 import type { EvaluateJpegRenditionWhiteBgRulesResult } from "@/lib/rules/jpeg-rendition-white-bg"
 import type { EvaluateJpgNeedsPngRulesResult } from "@/lib/rules/jpg-needs-png"
+import type { EvaluateMasterRenditionMetadataTargetsRulesResult } from "@/lib/rules/master-rendition-metadata-targets"
 import type { EvaluatePngNeedsJpegRulesResult } from "@/lib/rules/png-needs-jpeg"
 import type { EvaluatePsdPngJpgRulesResult } from "@/lib/rules/psd-png-jpg"
 import type { EvaluateTifPngJpgRulesResult } from "@/lib/rules/tif-png-jpg"
@@ -43,6 +47,8 @@ export type LibraryCheckDetailView =
   | "tif"
   | "png"
   | "jpg"
+  | "country"
+  | "masterParity"
   | "jpegBg"
   | "assets"
 
@@ -54,6 +60,8 @@ type Props = {
   tifPngJpg: EvaluateTifPngJpgRulesResult
   pngNeedsJpeg: EvaluatePngNeedsJpegRulesResult
   jpgNeedsPng: EvaluateJpgNeedsPngRulesResult
+  countryMetadataTargets: EvaluateCountryMetadataTargetsRulesResult
+  masterRenditionMetadataTargets: EvaluateMasterRenditionMetadataTargetsRulesResult
   jpegRenditionWhiteBg: EvaluateJpegRenditionWhiteBgRulesResult
   suitesSkipped: LibrarySuitesSkipped
   onOpen: (view: LibraryCheckDetailView) => void
@@ -200,6 +208,8 @@ export function LibraryCheckOverview({
   tifPngJpg,
   pngNeedsJpeg,
   jpgNeedsPng,
+  countryMetadataTargets,
+  masterRenditionMetadataTargets,
   jpegRenditionWhiteBg,
   suitesSkipped,
   onOpen,
@@ -216,6 +226,16 @@ export function LibraryCheckOverview({
     !!sk.jpgNeedsPng,
     jpgNeedsPng.jpgMasterCount,
     jpgNeedsPng.failCount
+  )
+  const countryMeta = suiteTone(
+    !!sk.countryMetadataTargets,
+    countryMetadataTargets.assetCount,
+    countryMetadataTargets.failCount
+  )
+  const masterParityMeta = suiteTone(
+    !!sk.masterRenditionMetadataTargets,
+    masterRenditionMetadataTargets.masterCount,
+    masterRenditionMetadataTargets.failCount
   )
   const jpegBgMeta = suiteTone(
     !!sk.jpegRenditionWhiteBg,
@@ -246,6 +266,14 @@ export function LibraryCheckOverview({
     aggregatePass += jpgNeedsPng.passCount
     aggregateFail += jpgNeedsPng.failCount
   }
+  if (!sk.countryMetadataTargets) {
+    aggregatePass += countryMetadataTargets.passCount
+    aggregateFail += countryMetadataTargets.failCount
+  }
+  if (!sk.masterRenditionMetadataTargets) {
+    aggregatePass += masterRenditionMetadataTargets.passCount
+    aggregateFail += masterRenditionMetadataTargets.failCount
+  }
   if (!sk.jpegRenditionWhiteBg) {
     aggregatePass += jpegRenditionWhiteBg.passCount
     aggregateFail += jpegRenditionWhiteBg.failCount
@@ -261,7 +289,11 @@ export function LibraryCheckOverview({
     (sk.psdPngJpg ? 0 : psdPngJpg.psdCount) +
     (sk.tifPngJpg ? 0 : tifPngJpg.tifCount) +
     (sk.pngNeedsJpeg ? 0 : pngNeedsJpeg.pngMasterCount) +
-    (sk.jpgNeedsPng ? 0 : jpgNeedsPng.jpgMasterCount)
+    (sk.jpgNeedsPng ? 0 : jpgNeedsPng.jpgMasterCount) +
+    (sk.countryMetadataTargets ? 0 : countryMetadataTargets.assetCount) +
+    (sk.masterRenditionMetadataTargets
+      ? 0
+      : masterRenditionMetadataTargets.masterCount)
 
   const jpegRenditionCasesInScope = sk.jpegRenditionWhiteBg
     ? 0
@@ -274,6 +306,9 @@ export function LibraryCheckOverview({
     !sk.tifPngJpg && tifPngJpg.failCount > 0,
     !sk.pngNeedsJpeg && pngNeedsJpeg.failCount > 0,
     !sk.jpgNeedsPng && jpgNeedsPng.failCount > 0,
+    !sk.countryMetadataTargets && countryMetadataTargets.failCount > 0,
+    !sk.masterRenditionMetadataTargets &&
+      masterRenditionMetadataTargets.failCount > 0,
     !sk.jpegRenditionWhiteBg && jpegRenditionWhiteBg.failCount > 0,
   ].filter(Boolean).length
 
@@ -454,7 +489,7 @@ export function LibraryCheckOverview({
         <h2 className="mb-3 font-mono text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.2em]">
           Automated test suites
         </h2>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7">
         <Card
           className={cn(
             "group flex flex-col transition-shadow",
@@ -724,6 +759,145 @@ export function LibraryCheckOverview({
               variant="secondary"
               className="w-full gap-2 group-hover:bg-accent"
               onClick={() => onOpen("jpg")}
+            >
+              View suite
+              <ArrowRight className="size-4" aria-hidden />
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card
+          className={cn(
+            "group flex flex-col transition-shadow",
+            suiteCardClass(countryMeta.tone)
+          )}
+        >
+          <CardHeader className="space-y-3 pb-3">
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <span className="flex size-9 items-center justify-center rounded-lg bg-sky-500/10 text-sky-900 dark:text-sky-300">
+                  <Globe className="size-4" aria-hidden />
+                </span>
+                <div className="min-w-0">
+                  <SuiteOverviewEyebrow id="COUNTRY-META-TARGETS" />
+                  <CardTitle className="text-base">Country metadata → targets</CardTitle>
+                  <CardDescription className="text-pretty text-xs">
+                    Each <strong className="font-medium">Country</strong> option must
+                    match a target{" "}
+                    <code className="font-mono text-[10px]">Country | …</code>.
+                  </CardDescription>
+                </div>
+              </div>
+            </div>
+            <SuiteStatusPill tone={countryMeta.tone} label={countryMeta.label} />
+            <div className="flex flex-wrap gap-2">
+              {sk.countryMetadataTargets ? (
+                <Badge
+                  variant="outline"
+                  className="border-dashed border-amber-500/40 font-mono text-xs text-amber-900 dark:text-amber-200"
+                >
+                  Suite off
+                </Badge>
+              ) : (
+                <>
+                  <Badge variant="outline" className="font-mono text-xs">
+                    {countryMetadataTargets.assetCount} assets
+                  </Badge>
+                  {countryMetadataTargets.assetCount > 0 ? (
+                    <>
+                      <Badge
+                        variant="secondary"
+                        className="bg-emerald-500/15 text-emerald-800 dark:text-emerald-300"
+                      >
+                        {countryMetadataTargets.passCount} pass
+                      </Badge>
+                      <Badge
+                        variant="secondary"
+                        className="bg-destructive/15 text-destructive"
+                      >
+                        {countryMetadataTargets.failCount} fail
+                      </Badge>
+                    </>
+                  ) : null}
+                </>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent className="mt-auto pt-0">
+            <Button
+              type="button"
+              variant="secondary"
+              className="w-full gap-2 group-hover:bg-accent"
+              onClick={() => onOpen("country")}
+            >
+              View suite
+              <ArrowRight className="size-4" aria-hidden />
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card
+          className={cn(
+            "group flex flex-col transition-shadow",
+            suiteCardClass(masterParityMeta.tone)
+          )}
+        >
+          <CardHeader className="space-y-3 pb-3">
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <span className="flex size-9 items-center justify-center rounded-lg bg-cyan-500/10 text-cyan-900 dark:text-cyan-300">
+                  <GitCompare className="size-4" aria-hidden />
+                </span>
+                <div className="min-w-0">
+                  <SuiteOverviewEyebrow id="MASTER-REND-META-TARGETS" />
+                  <CardTitle className="text-base">Master/rendition parity</CardTitle>
+                  <CardDescription className="text-pretty text-xs">
+                    For supported masters, rendition custom metadata and targets must
+                    match the master exactly.
+                  </CardDescription>
+                </div>
+              </div>
+            </div>
+            <SuiteStatusPill tone={masterParityMeta.tone} label={masterParityMeta.label} />
+            <div className="flex flex-wrap gap-2">
+              {sk.masterRenditionMetadataTargets ? (
+                <Badge
+                  variant="outline"
+                  className="border-dashed border-amber-500/40 font-mono text-xs text-amber-900 dark:text-amber-200"
+                >
+                  Suite off
+                </Badge>
+              ) : (
+                <>
+                  <Badge variant="outline" className="font-mono text-xs">
+                    {masterRenditionMetadataTargets.masterCount} masters
+                  </Badge>
+                  {masterRenditionMetadataTargets.masterCount > 0 ? (
+                    <>
+                      <Badge
+                        variant="secondary"
+                        className="bg-emerald-500/15 text-emerald-800 dark:text-emerald-300"
+                      >
+                        {masterRenditionMetadataTargets.passCount} pass
+                      </Badge>
+                      <Badge
+                        variant="secondary"
+                        className="bg-destructive/15 text-destructive"
+                      >
+                        {masterRenditionMetadataTargets.failCount} fail
+                      </Badge>
+                    </>
+                  ) : null}
+                </>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent className="mt-auto pt-0">
+            <Button
+              type="button"
+              variant="secondary"
+              className="w-full gap-2 group-hover:bg-accent"
+              onClick={() => onOpen("masterParity")}
             >
               View suite
               <ArrowRight className="size-4" aria-hidden />

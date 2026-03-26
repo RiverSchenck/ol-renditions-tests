@@ -1,3 +1,4 @@
+import { FRONTIFY_BETA_HEADERS } from "./frontify-http-headers"
 import {
   LIBRARY_ASSETS_PAGE_SIZE,
   LIBRARY_BY_ID_QUERY,
@@ -66,6 +67,7 @@ async function fetchAssetsPage(
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
+        ...FRONTIFY_BETA_HEADERS,
       },
       body: JSON.stringify({
         query: LIBRARY_BY_ID_QUERY,

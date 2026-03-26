@@ -1,4 +1,5 @@
 import { previewHref, stringField } from "@/lib/frontify/asset-helpers"
+import { FRONTIFY_BETA_HEADERS } from "@/lib/frontify/frontify-http-headers"
 import { analyzeJpegBufferWhiteBorder } from "@/lib/image/jpeg-white-border"
 import type { FrontifyLibraryAssetItem } from "@/lib/frontify/types"
 import { RENDITION_JPEG_EXTERNAL_SUFFIX } from "@/lib/rules/psd-png-jpg"
@@ -33,7 +34,7 @@ async function fetchPreviewBuffer(
   accessToken?: string
 ): Promise<Buffer | null> {
   try {
-    const headers: Record<string, string> = {}
+    const headers: Record<string, string> = { ...FRONTIFY_BETA_HEADERS }
     if (accessToken) {
       headers.Authorization = `Bearer ${accessToken}`
     }

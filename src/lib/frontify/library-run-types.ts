@@ -1,5 +1,7 @@
+import type { EvaluateCountryMetadataTargetsRulesResult } from "@/lib/rules/country-metadata-targets"
 import type { EvaluateJpegRenditionWhiteBgRulesResult } from "@/lib/rules/jpeg-rendition-white-bg"
 import type { EvaluateJpgNeedsPngRulesResult } from "@/lib/rules/jpg-needs-png"
+import type { EvaluateMasterRenditionMetadataTargetsRulesResult } from "@/lib/rules/master-rendition-metadata-targets"
 import type { EvaluatePngNeedsJpegRulesResult } from "@/lib/rules/png-needs-jpeg"
 import type { EvaluatePsdPngJpgRulesResult } from "@/lib/rules/psd-png-jpg"
 import type { EvaluateTifPngJpgRulesResult } from "@/lib/rules/tif-png-jpg"
@@ -14,6 +16,8 @@ export const LIBRARY_SUITE_KEYS = [
   "tifPngJpg",
   "pngNeedsJpeg",
   "jpgNeedsPng",
+  "countryMetadataTargets",
+  "masterRenditionMetadataTargets",
   "jpegRenditionWhiteBg",
 ] as const
 
@@ -35,6 +39,8 @@ export type LibraryRunSuccessBody = {
   tifPngJpg: EvaluateTifPngJpgRulesResult
   pngNeedsJpeg: EvaluatePngNeedsJpegRulesResult
   jpgNeedsPng: EvaluateJpgNeedsPngRulesResult
+  countryMetadataTargets: EvaluateCountryMetadataTargetsRulesResult
+  masterRenditionMetadataTargets: EvaluateMasterRenditionMetadataTargetsRulesResult
   jpegRenditionWhiteBg: EvaluateJpegRenditionWhiteBgRulesResult
 }
 

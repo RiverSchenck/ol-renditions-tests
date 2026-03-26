@@ -9,10 +9,14 @@ import {
   type LibrarySuitesSkipped,
   type LibrarySuiteKey,
 } from "@/lib/frontify/library-run-types"
+import { evaluateCountryMetadataTargetsRules } from "@/lib/rules/country-metadata-targets"
+import type { EvaluateCountryMetadataTargetsRulesResult } from "@/lib/rules/country-metadata-targets"
 import { evaluateJpegRenditionWhiteBgRules } from "@/lib/rules/jpeg-rendition-white-bg"
 import type { EvaluateJpegRenditionWhiteBgRulesResult } from "@/lib/rules/jpeg-rendition-white-bg"
 import { evaluateJpgNeedsPngRules } from "@/lib/rules/jpg-needs-png"
 import type { EvaluateJpgNeedsPngRulesResult } from "@/lib/rules/jpg-needs-png"
+import { evaluateMasterRenditionMetadataTargetsRules } from "@/lib/rules/master-rendition-metadata-targets"
+import type { EvaluateMasterRenditionMetadataTargetsRulesResult } from "@/lib/rules/master-rendition-metadata-targets"
 import { evaluatePngNeedsJpegRules } from "@/lib/rules/png-needs-jpeg"
 import type { EvaluatePngNeedsJpegRulesResult } from "@/lib/rules/png-needs-jpeg"
 import { evaluatePsdPngJpgRules } from "@/lib/rules/psd-png-jpg"
@@ -60,11 +64,29 @@ const EMPTY_JPEG_BG: EvaluateJpegRenditionWhiteBgRulesResult = {
   failCount: 0,
 }
 
+const EMPTY_COUNTRY_METADATA_TARGETS: EvaluateCountryMetadataTargetsRulesResult =
+  {
+    rows: [],
+    assetCount: 0,
+    passCount: 0,
+    failCount: 0,
+  }
+
+const EMPTY_MASTER_RENDITION_METADATA_TARGETS: EvaluateMasterRenditionMetadataTargetsRulesResult =
+  {
+    rows: [],
+    masterCount: 0,
+    passCount: 0,
+    failCount: 0,
+  }
+
 const DEFAULT_CHECKS: Record<LibrarySuiteKey, boolean> = {
   psdPngJpg: true,
   tifPngJpg: true,
   pngNeedsJpeg: true,
   jpgNeedsPng: true,
+  countryMetadataTargets: true,
+  masterRenditionMetadataTargets: true,
   jpegRenditionWhiteBg: true,
 }
 
@@ -211,12 +233,16 @@ export async function runLibraryCheck(
   let tifPngJpg = EMPTY_TIF
   let pngNeedsJpeg = EMPTY_PNG_JPEG
   let jpgNeedsPng = EMPTY_JPG_PNG
+  let countryMetadataTargets = EMPTY_COUNTRY_METADATA_TARGETS
+  let masterRenditionMetadataTargets = EMPTY_MASTER_RENDITION_METADATA_TARGETS
 
   const localSuiteEnabled =
     checks.psdPngJpg ||
     checks.tifPngJpg ||
     checks.pngNeedsJpeg ||
-    checks.jpgNeedsPng
+    checks.jpgNeedsPng ||
+    checks.countryMetadataTargets ||
+    checks.masterRenditionMetadataTargets
 
   if (localSuiteEnabled) {
     log(onLine, "command", "Evaluating rule suites (local, in-memory)…")
@@ -231,6 +257,13 @@ export async function runLibraryCheck(
     }
     if (checks.jpgNeedsPng) {
       jpgNeedsPng = evaluateJpgNeedsPngRules(result.items)
+    }
+    if (checks.countryMetadataTargets) {
+      countryMetadataTargets = evaluateCountryMetadataTargetsRules(result.items)
+    }
+    if (checks.masterRenditionMetadataTargets) {
+      masterRenditionMetadataTargets =
+        evaluateMasterRenditionMetadataTargetsRules(result.items)
     }
     const ran = LIBRARY_SUITE_KEYS.filter(
       (k) =>
@@ -306,6 +339,8 @@ export async function runLibraryCheck(
     tifPngJpg,
     pngNeedsJpeg,
     jpgNeedsPng,
+    countryMetadataTargets,
+    masterRenditionMetadataTargets,
     jpegRenditionWhiteBg,
   }
 

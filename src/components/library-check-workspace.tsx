@@ -5,6 +5,8 @@ import {
   Ban,
   ChevronDown,
   Clock,
+  GitCompare,
+  Globe,
   Image as ImageLucide,
   ImageIcon,
   Images,
@@ -23,8 +25,10 @@ import {
   type LibraryCheckDetailView,
 } from "@/components/library-check-overview"
 import { LibraryAssetsTable } from "@/components/library-assets-table"
+import { CountryMetadataTargetsRulePanel } from "@/components/country-metadata-targets-rule-panel"
 import { JpegRenditionWhiteBgRulePanel } from "@/components/jpeg-rendition-white-bg-rule-panel"
 import { JpgNeedsPngRulePanel } from "@/components/jpg-needs-png-rule-panel"
+import { MasterRenditionMetadataTargetsRulePanel } from "@/components/master-rendition-metadata-targets-rule-panel"
 import { PngNeedsJpegRulePanel } from "@/components/png-needs-jpeg-rule-panel"
 import { PsdPngJpgRulePanel } from "@/components/psd-png-jpg-rule-panel"
 import { TifPngJpgRulePanel } from "@/components/tif-png-jpg-rule-panel"
@@ -67,6 +71,8 @@ const ALL_CHECKS_ON: Record<LibrarySuiteKey, boolean> = {
   tifPngJpg: true,
   pngNeedsJpeg: true,
   jpgNeedsPng: true,
+  countryMetadataTargets: true,
+  masterRenditionMetadataTargets: true,
   jpegRenditionWhiteBg: true,
 }
 
@@ -98,6 +104,16 @@ const SUITE_TOGGLE_ROWS: {
     hint: "Local GraphQL row scan only.",
   },
   {
+    key: "countryMetadataTargets",
+    title: "Country metadata → matching targets",
+    hint: "Local GraphQL row scan only. Requires Country custom metadata and targets named `Country | {text}`.",
+  },
+  {
+    key: "masterRenditionMetadataTargets",
+    title: "Master/rendition metadata + targets parity",
+    hint: "Local GraphQL row scan only. Fails if rendition metadata or targets differ from master.",
+  },
+  {
     key: "jpegRenditionWhiteBg",
     title: "JPEG previews — studio white-border sampling",
     hint: "Downloads and decodes each preview URL before border sampling. The full run stays busy until every rendition finishes.",
@@ -110,6 +126,8 @@ const TAB_SUITE_KEY: Partial<Record<LibraryCheckDetailView, LibrarySuiteKey>> = 
   tif: "tifPngJpg",
   png: "pngNeedsJpeg",
   jpg: "jpgNeedsPng",
+  country: "countryMetadataTargets",
+  masterParity: "masterRenditionMetadataTargets",
   jpegBg: "jpegRenditionWhiteBg",
 }
 
@@ -186,6 +204,20 @@ const VIEW_TABS: {
     icon: ImageLucide,
   },
   {
+    id: "country",
+    label: "Country metadata — matching targets",
+    shortLabel: "Country",
+    narrowLabel: "CC",
+    icon: Globe,
+  },
+  {
+    id: "masterParity",
+    label: "Master/rendition metadata + targets parity",
+    shortLabel: "Master parity",
+    narrowLabel: "Parity",
+    icon: GitCompare,
+  },
+  {
     id: "jpegBg",
     label:
       "JPEG renditions — studio background (slow: downloads + decodes each preview)",
@@ -213,6 +245,8 @@ function ResultsTabBar({
   tifFailCount,
   pngFailCount,
   jpgFailCount,
+  countryFailCount,
+  masterParityFailCount,
   jpegBgFailCount,
 }: {
   active: ResultView
@@ -222,6 +256,8 @@ function ResultsTabBar({
   tifFailCount: number
   pngFailCount: number
   jpgFailCount: number
+  countryFailCount: number
+  masterParityFailCount: number
   jpegBgFailCount: number
 }) {
   function renderTabButton(
@@ -240,6 +276,8 @@ function ResultsTabBar({
         (id === "tif" && tifFailCount > 0) ||
         (id === "png" && pngFailCount > 0) ||
         (id === "jpg" && jpgFailCount > 0) ||
+        (id === "country" && countryFailCount > 0) ||
+        (id === "masterParity" && masterParityFailCount > 0) ||
         (id === "jpegBg" && jpegBgFailCount > 0))
     return (
       <button
@@ -358,6 +396,8 @@ export function LibraryCheckWorkspace() {
       tifPngJpg: value,
       pngNeedsJpeg: value,
       jpgNeedsPng: value,
+      countryMetadataTargets: value,
+      masterRenditionMetadataTargets: value,
       jpegRenditionWhiteBg: value,
     })
   }
@@ -552,7 +592,7 @@ export function LibraryCheckWorkspace() {
                   </p>
                   {!runConfigOpen ? (
                     <p className="mt-1 truncate text-muted-foreground text-xs">
-                      {enabledSuiteCount}/5 suites enabled
+                      {enabledSuiteCount}/7 suites enabled
                     </p>
                   ) : (
                     <p className="mt-1 text-muted-foreground text-xs">
@@ -688,6 +728,8 @@ export function LibraryCheckWorkspace() {
             tifFailCount={phase.data.tifPngJpg.failCount}
             pngFailCount={phase.data.pngNeedsJpeg.failCount}
             jpgFailCount={phase.data.jpgNeedsPng.failCount}
+            countryFailCount={phase.data.countryMetadataTargets.failCount}
+            masterParityFailCount={phase.data.masterRenditionMetadataTargets.failCount}
             jpegBgFailCount={phase.data.jpegRenditionWhiteBg.failCount}
           />
 
@@ -732,6 +774,8 @@ export function LibraryCheckWorkspace() {
                     tifPngJpg={phase.data.tifPngJpg}
                     pngNeedsJpeg={phase.data.pngNeedsJpeg}
                     jpgNeedsPng={phase.data.jpgNeedsPng}
+                    countryMetadataTargets={phase.data.countryMetadataTargets}
+                    masterRenditionMetadataTargets={phase.data.masterRenditionMetadataTargets}
                     jpegRenditionWhiteBg={phase.data.jpegRenditionWhiteBg}
                     suitesSkipped={phase.data.suitesSkipped}
                     onOpen={(view) => setResultView(view)}
@@ -794,6 +838,36 @@ export function LibraryCheckWorkspace() {
               ) : (
                 <JpgNeedsPngRulePanel
                   {...phase.data.jpgNeedsPng}
+                  items={phase.data.items}
+                  frontifyWebBase={phase.data.frontifyWebBase}
+                />
+              )
+            ) : null}
+
+            {resultView === "country" ? (
+              phase.data.suitesSkipped.countryMetadataTargets ? (
+                <SkippedSuitePanel
+                  title="Country metadata / targets suite skipped"
+                  description="This run did not check Country custom metadata against Frontify target names."
+                />
+              ) : (
+                <CountryMetadataTargetsRulePanel
+                  {...phase.data.countryMetadataTargets}
+                  items={phase.data.items}
+                  frontifyWebBase={phase.data.frontifyWebBase}
+                />
+              )
+            ) : null}
+
+            {resultView === "masterParity" ? (
+              phase.data.suitesSkipped.masterRenditionMetadataTargets ? (
+                <SkippedSuitePanel
+                  title="Master/rendition metadata + targets parity suite skipped"
+                  description="This run did not compare master metadata/targets against expected renditions."
+                />
+              ) : (
+                <MasterRenditionMetadataTargetsRulePanel
+                  {...phase.data.masterRenditionMetadataTargets}
                   items={phase.data.items}
                   frontifyWebBase={phase.data.frontifyWebBase}
                 />
