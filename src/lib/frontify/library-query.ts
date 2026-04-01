@@ -11,6 +11,7 @@ export const LIBRARY_BY_ID_QUERY = /* GraphQL */ `
           id
           externalId
           title
+          modifiedAt
           ... on Asset {
             targets {
               name

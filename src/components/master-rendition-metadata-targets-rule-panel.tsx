@@ -1,3 +1,6 @@
+"use client"
+
+import * as React from "react"
 import { RuleSuitePanelHeader } from "@/components/rule-suite-panel-header"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
@@ -7,7 +10,34 @@ import type { FrontifyLibraryAssetItem } from "@/lib/frontify/types"
 import type { MasterRenditionMatchRow } from "@/lib/rules/master-rendition-metadata-targets"
 import { cn, sortRuleRowsFailsFirst } from "@/lib/utils"
 import { Check, X } from "lucide-react"
-import type { ReactNode } from "react"
+
+type MasterSortMode = "failFirst" | "modifiedNewest" | "modifiedOldest"
+
+function modifiedAtMs(iso: string | null): number | null {
+  if (!iso) return null
+  const ms = Date.parse(iso)
+  return Number.isFinite(ms) ? ms : null
+}
+
+/** One list by master `modifiedAt`; passes and fails sort together (missing dates last). */
+function sortMasterRowsByModified(
+  rows: MasterRenditionMatchRow[],
+  mode: "modifiedNewest" | "modifiedOldest"
+): MasterRenditionMatchRow[] {
+  const dir = mode === "modifiedNewest" ? -1 : 1
+  return [...rows].sort((a, b) => {
+    const ta = modifiedAtMs(a.masterModifiedAt)
+    const tb = modifiedAtMs(b.masterModifiedAt)
+    const aMiss = ta === null
+    const bMiss = tb === null
+    if (aMiss && bMiss) return a.masterId.localeCompare(b.masterId)
+    if (aMiss) return 1
+    if (bMiss) return -1
+    const cmp = (ta - tb) * dir
+    if (cmp !== 0) return cmp
+    return a.masterId.localeCompare(b.masterId)
+  })
+}
 
 type Props = {
   rows: MasterRenditionMatchRow[]
@@ -16,52 +46,6 @@ type Props = {
   failCount: number
   items: FrontifyLibraryAssetItem[]
   frontifyWebBase: FrontifyWebBase | null
-}
-
-function SuiteSection({
-  title,
-  subtitle,
-  count,
-  tone,
-  children,
-}: {
-  title: string
-  subtitle: string
-  count: number
-  tone: "fail" | "pass"
-  children: ReactNode
-}) {
-  return (
-    <section className="space-y-4">
-      <div
-        className={cn(
-          "rounded-lg border-l-4 px-4 py-3",
-          tone === "fail"
-            ? "border-l-destructive bg-destructive/[0.04] dark:bg-destructive/10"
-            : "border-l-emerald-600/70 bg-emerald-500/[0.04] dark:bg-emerald-500/10"
-        )}
-      >
-        <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <h2 className="font-heading text-base font-semibold text-foreground tracking-tight">
-            {title}
-          </h2>
-          <Badge
-            variant="outline"
-            className={cn(
-              "font-mono text-xs tabular-nums",
-              tone === "fail"
-                ? "border-destructive/40 text-destructive"
-                : "border-emerald-600/40 text-emerald-800 dark:text-emerald-300"
-            )}
-          >
-            {count} {count === 1 ? "case" : "cases"}
-          </Badge>
-        </div>
-        <p className="mt-1 text-muted-foreground text-sm leading-relaxed">{subtitle}</p>
-      </div>
-      {children}
-    </section>
-  )
 }
 
 function ResultMark({ ok }: { ok: boolean }) {
@@ -232,6 +216,9 @@ function CaseBlock({
   )
 }
 
+const sortSelectClass =
+  "h-8 max-w-[min(100%,20rem)] rounded-md border border-input bg-background px-2 text-xs shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+
 export function MasterRenditionMetadataTargetsRulePanel({
   rows,
   masterCount,
@@ -240,9 +227,12 @@ export function MasterRenditionMetadataTargetsRulePanel({
   items,
   frontifyWebBase,
 }: Props) {
-  const ordered = sortRuleRowsFailsFirst(rows)
-  const failRows = ordered.filter((r) => !r.ok)
-  const passRows = ordered.filter((r) => r.ok)
+  const [sortMode, setSortMode] = React.useState<MasterSortMode>("failFirst")
+
+  const displayRows =
+    sortMode === "failFirst"
+      ? sortRuleRowsFailsFirst(rows)
+      : sortMasterRowsByModified(rows, sortMode)
 
   return (
     <Card className="overflow-hidden shadow-sm">
@@ -261,51 +251,46 @@ export function MasterRenditionMetadataTargetsRulePanel({
           </>
         }
       />
-      <CardContent className="space-y-8 pt-6">
+      <CardContent className="space-y-6 pt-6">
         {masterCount === 0 ? (
           <p className="text-muted-foreground text-sm">
             No supported masters found in this load.
           </p>
         ) : (
           <>
-            {failRows.length > 0 ? (
-              <SuiteSection
-                title="Non-conformities"
-                subtitle="Rendition missing or metadata/targets differ from master."
-                count={failRows.length}
-                tone="fail"
-              >
-                <div className="space-y-6">
-                  {failRows.map((row) => (
-                    <CaseBlock
-                      key={row.masterId}
-                      row={row}
-                      items={items}
-                      frontifyWebBase={frontifyWebBase}
-                    />
-                  ))}
-                </div>
-              </SuiteSection>
-            ) : null}
-            {passRows.length > 0 ? (
-              <SuiteSection
-                title="Conformities"
-                subtitle="All expected renditions match master metadata and targets."
-                count={passRows.length}
-                tone="pass"
-              >
-                <div className="space-y-6">
-                  {passRows.map((row) => (
-                    <CaseBlock
-                      key={row.masterId}
-                      row={row}
-                      items={items}
-                      frontifyWebBase={frontifyWebBase}
-                    />
-                  ))}
-                </div>
-              </SuiteSection>
-            ) : null}
+            <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+              <p className="text-muted-foreground text-xs leading-snug">
+                <strong className="font-medium text-foreground">Fails first</strong> keeps failures
+                at the top.{" "}
+                <strong className="font-medium text-foreground">Modified</strong> sorts all cases by
+                the master&apos;s <code className="font-mono">modifiedAt</code> (passes and fails
+                mixed by date).
+              </p>
+              <label className="flex flex-wrap items-center gap-2 text-xs">
+                <span className="shrink-0 text-muted-foreground">Sort cases</span>
+                <select
+                  className={sortSelectClass}
+                  value={sortMode}
+                  onChange={(e) => setSortMode(e.target.value as MasterSortMode)}
+                  aria-label="Sort master cases"
+                >
+                  <option value="failFirst">Fails first (default)</option>
+                  <option value="modifiedNewest">Most recently modified</option>
+                  <option value="modifiedOldest">Least recently modified</option>
+                </select>
+              </label>
+            </div>
+
+            <div className="space-y-6">
+              {displayRows.map((row) => (
+                <CaseBlock
+                  key={row.masterId}
+                  row={row}
+                  items={items}
+                  frontifyWebBase={frontifyWebBase}
+                />
+              ))}
+            </div>
           </>
         )}
       </CardContent>

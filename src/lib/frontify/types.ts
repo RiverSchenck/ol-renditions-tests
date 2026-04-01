@@ -4,6 +4,8 @@
  */
 export type FrontifyLibraryAssetItem = Record<string, unknown> & {
   id: string
+  /** RFC 3339 date-time from Frontify when requested in the query. */
+  modifiedAt?: string
 }
 
 export type LibraryByIdResponse = {

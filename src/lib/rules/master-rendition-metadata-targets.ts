@@ -1,4 +1,4 @@
-import { stringField } from "@/lib/frontify/asset-helpers"
+import { modifiedAtField, stringField } from "@/lib/frontify/asset-helpers"
 import type { FrontifyLibraryAssetItem } from "@/lib/frontify/types"
 import { expectedPngRenditionForJpgMaster } from "@/lib/rules/jpg-needs-png"
 import {
@@ -35,6 +35,8 @@ export type MasterRenditionMatchRow = {
   title: string
   masterExtension: string
   masterExternalId: string
+  /** Master asset `modifiedAt` (RFC 3339), for sorting / display. */
+  masterModifiedAt: string | null
   kind: MasterKind
   ok: boolean
   note: string
@@ -260,6 +262,7 @@ export function evaluateMasterRenditionMetadataTargetsRules(
     const masterExternalId = stringField(master, "externalId").trim()
     const masterExtension = normExt(stringField(master, "extension")) || "—"
     const title = stringField(master, "title") || "—"
+    const masterModifiedAt = modifiedAtField(master)
     const expected = expectationForMaster(master)
 
     if (expected.length === 0) continue
@@ -269,6 +272,7 @@ export function evaluateMasterRenditionMetadataTargetsRules(
         title,
         masterExtension,
         masterExternalId: "",
+        masterModifiedAt,
         kind,
         ok: false,
         note: "Master has no external ID (cannot derive expected rendition IDs).",
@@ -340,6 +344,7 @@ export function evaluateMasterRenditionMetadataTargetsRules(
       title,
       masterExtension,
       masterExternalId,
+      masterModifiedAt,
       kind,
       ok,
       note: ok

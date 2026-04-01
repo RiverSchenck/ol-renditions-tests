@@ -3,7 +3,12 @@
 import * as React from "react"
 import { ExternalLink, ImageOff } from "lucide-react"
 
-import { previewHref, stringField } from "@/lib/frontify/asset-helpers"
+import {
+  formatModifiedAtDisplay,
+  modifiedAtField,
+  previewHref,
+  stringField,
+} from "@/lib/frontify/asset-helpers"
 import {
   frontifyScreenHref,
   frontifyScreenIdFromGraphqlAssetId,
@@ -58,6 +63,8 @@ function SlotCell({
 
   const id = pick || assetIds[0] || ""
   const item = id ? byId.get(id) : undefined
+  const modifiedRaw = item ? modifiedAtField(item) : null
+  const modifiedDisplay = formatModifiedAtDisplay(modifiedRaw)
   const url = item ? previewHref(item) : null
   const href =
     frontifyWebBase && id ? frontifyScreenHref(frontifyWebBase, id) : null
@@ -151,6 +158,14 @@ function SlotCell({
                   Screen id ·{" "}
                 </span>
                 {screenId}
+              </p>
+            ) : null}
+            {modifiedDisplay && modifiedRaw ? (
+              <p className="text-foreground/90" title={modifiedRaw}>
+                <span className="text-[9px] uppercase tracking-wide text-muted-foreground">
+                  Modified ·{" "}
+                </span>
+                <time dateTime={modifiedRaw}>{modifiedDisplay}</time>
               </p>
             ) : null}
           </div>
