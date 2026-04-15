@@ -7,7 +7,13 @@ import {
 } from "@/lib/rules/png-needs-jpeg"
 import {
   expectedJpegRenditionExternalId,
+  expectedModulePsdJpegRenditionExternalId,
+  expectedModulePsdPngRenditionExternalId,
   expectedPngRenditionExternalId,
+  PSD_PSB_RENDITIONS_OUT_OF_SCOPE_NOTE,
+  psdPsbRenditionScope,
+  psdPsbScopeRowContext,
+  type PsdPsbScopePath,
 } from "@/lib/rules/psd-png-jpg"
 import {
   expectedTifJpegRenditionExternalId,
@@ -38,6 +44,14 @@ export type MasterRenditionMatchRow = {
   /** Master asset `modifiedAt` (RFC 3339), for sorting / display. */
   masterModifiedAt: string | null
   kind: MasterKind
+  /** False for PSD/PSB outside rendition metadata scope — no parity checks. */
+  renditionsInScope: boolean
+  /** Set for PSD/PSB only: scope path + master metadata used for eligibility. */
+  psdScope?: {
+    scopePath: PsdPsbScopePath
+    assetType: string[]
+    assetSubCategory: string[]
+  }
   ok: boolean
   note: string
   checks: {
@@ -169,15 +183,22 @@ function expectationForMaster(item: FrontifyLibraryAssetItem): RenditionExpectat
   const base = stringField(item, "externalId").trim()
   if (!base) return []
   if (ext === "psd" || ext === "psb") {
+    const scope = psdPsbRenditionScope(item)
+    if (!scope.inScope) return []
+    const useRule1Ids = scope.enforce1200LongSide
     return [
       {
         slot: "jpeg",
-        expectedExternalId: expectedJpegRenditionExternalId(base),
+        expectedExternalId: useRule1Ids
+          ? expectedJpegRenditionExternalId(base)
+          : expectedModulePsdJpegRenditionExternalId(base),
         expectedType: "jpeg",
       },
       {
         slot: "png",
-        expectedExternalId: expectedPngRenditionExternalId(base),
+        expectedExternalId: useRule1Ids
+          ? expectedPngRenditionExternalId(base)
+          : expectedModulePsdPngRenditionExternalId(base),
         expectedType: "png",
       },
     ]
@@ -263,6 +284,29 @@ export function evaluateMasterRenditionMetadataTargetsRules(
     const masterExtension = normExt(stringField(master, "extension")) || "—"
     const title = stringField(master, "title") || "—"
     const masterModifiedAt = modifiedAtField(master)
+    const psdCtx = kind === "psdPsb" ? psdPsbScopeRowContext(master) : null
+
+    if (kind === "psdPsb" && psdCtx && !psdCtx.scope.inScope) {
+      rows.push({
+        masterId: master.id,
+        title,
+        masterExtension,
+        masterExternalId,
+        masterModifiedAt,
+        kind,
+        renditionsInScope: false,
+        psdScope: {
+          scopePath: psdCtx.scopePath,
+          assetType: psdCtx.scopeMetadata.assetType,
+          assetSubCategory: psdCtx.scopeMetadata.assetSubCategory,
+        },
+        ok: true,
+        note: PSD_PSB_RENDITIONS_OUT_OF_SCOPE_NOTE,
+        checks: [],
+      })
+      continue
+    }
+
     const expected = expectationForMaster(master)
 
     if (expected.length === 0) continue
@@ -274,6 +318,16 @@ export function evaluateMasterRenditionMetadataTargetsRules(
         masterExternalId: "",
         masterModifiedAt,
         kind,
+        renditionsInScope: true,
+        ...(psdCtx
+          ? {
+              psdScope: {
+                scopePath: psdCtx.scopePath,
+                assetType: psdCtx.scopeMetadata.assetType,
+                assetSubCategory: psdCtx.scopeMetadata.assetSubCategory,
+              },
+            }
+          : {}),
         ok: false,
         note: "Master has no external ID (cannot derive expected rendition IDs).",
         checks: [],
@@ -292,6 +346,22 @@ export function evaluateMasterRenditionMetadataTargetsRules(
       })
       const rendition = typed[0] ?? null
       if (!rendition) {
+        const missingEntirely = candidates.length === 0
+        if (missingEntirely) {
+          return {
+            slot: exp.slot,
+            expectedExternalId: exp.expectedExternalId,
+            renditionId: null,
+            renditionExtension: null,
+            found: false,
+            metadataEqual: true,
+            targetsEqual: true,
+            metadataRows: [],
+            targetRows: [],
+            ok: true,
+            note: `No asset at ${exp.expectedExternalId} — parity skipped (rendition not in this load).`,
+          }
+        }
         return {
           slot: exp.slot,
           expectedExternalId: exp.expectedExternalId,
@@ -303,10 +373,7 @@ export function evaluateMasterRenditionMetadataTargetsRules(
           metadataRows: metadataRows(mMeta, new Map<string, Set<string>>()),
           targetRows: targetRows(mTargets, new Set<string>()),
           ok: false,
-          note:
-            candidates.length === 0
-              ? `No rendition found at ${exp.expectedExternalId}.`
-              : `Rendition exists at ${exp.expectedExternalId} but file type is not ${exp.expectedType}.`,
+          note: `Rendition exists at ${exp.expectedExternalId} but file type is not ${exp.expectedType}.`,
         }
       }
 
@@ -339,6 +406,24 @@ export function evaluateMasterRenditionMetadataTargetsRules(
 
     const ok = checks.length > 0 && checks.every((c) => c.ok)
     const failed = checks.filter((c) => !c.ok)
+    const allSlotsSkippedMissing =
+      ok && checks.length > 0 && checks.every((c) => !c.found && c.ok)
+    const someSlotsSkippedMissing =
+      ok && checks.some((c) => !c.found && c.ok) && checks.some((c) => c.found)
+
+    let rowNote: string
+    if (!ok) {
+      rowNote = failed.map((c) => `${c.slot.toUpperCase()}: ${c.note}`).join(" ")
+    } else if (allSlotsSkippedMissing) {
+      rowNote =
+        "No renditions at the expected external IDs in this library load — parity not evaluated (not an error)."
+    } else if (someSlotsSkippedMissing) {
+      rowNote =
+        "Renditions present match master metadata and targets. Other expected slots had no asset in this load (skipped)."
+    } else {
+      rowNote = "All expected renditions match master metadata and targets."
+    }
+
     rows.push({
       masterId: master.id,
       title,
@@ -346,10 +431,18 @@ export function evaluateMasterRenditionMetadataTargetsRules(
       masterExternalId,
       masterModifiedAt,
       kind,
+      renditionsInScope: true,
+      ...(psdCtx
+        ? {
+            psdScope: {
+              scopePath: psdCtx.scopePath,
+              assetType: psdCtx.scopeMetadata.assetType,
+              assetSubCategory: psdCtx.scopeMetadata.assetSubCategory,
+            },
+          }
+        : {}),
       ok,
-      note: ok
-        ? "All expected renditions match master metadata and targets."
-        : failed.map((c) => `${c.slot.toUpperCase()}: ${c.note}`).join(" "),
+      note: rowNote,
       checks,
     })
   }

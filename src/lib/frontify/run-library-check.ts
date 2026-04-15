@@ -19,7 +19,11 @@ import { evaluateMasterRenditionMetadataTargetsRules } from "@/lib/rules/master-
 import type { EvaluateMasterRenditionMetadataTargetsRulesResult } from "@/lib/rules/master-rendition-metadata-targets"
 import { evaluatePngNeedsJpegRules } from "@/lib/rules/png-needs-jpeg"
 import type { EvaluatePngNeedsJpegRulesResult } from "@/lib/rules/png-needs-jpeg"
-import { evaluatePsdPngJpgRules } from "@/lib/rules/psd-png-jpg"
+import {
+  countPsdPsbRenditionPairInventory,
+  evaluatePsdPngJpgRules,
+  summarizePsdPsbScopedRuleFailures,
+} from "@/lib/rules/psd-png-jpg"
 import type { EvaluatePsdPngJpgRulesResult } from "@/lib/rules/psd-png-jpg"
 import { evaluateTifPngJpgRules } from "@/lib/rules/tif-png-jpg"
 import type { EvaluateTifPngJpgRulesResult } from "@/lib/rules/tif-png-jpg"
@@ -34,6 +38,13 @@ const EMPTY_PSD: EvaluatePsdPngJpgRulesResult = {
   psdCount: 0,
   passCount: 0,
   failCount: 0,
+  scopedRuleSummary: summarizePsdPsbScopedRuleFailures([]),
+  inventory: {
+    totalPsdPsbCount: 0,
+    noBaseExternalIdCount: 0,
+    completeRenditionPairCount: 0,
+    incompleteRenditionPairCount: 0,
+  },
 }
 
 const EMPTY_TIF: EvaluateTifPngJpgRulesResult = {
@@ -246,9 +257,6 @@ export async function runLibraryCheck(
 
   if (localSuiteEnabled) {
     log(onLine, "command", "Evaluating rule suites (local, in-memory)…")
-    if (checks.psdPngJpg) {
-      psdPngJpg = evaluatePsdPngJpgRules(result.items)
-    }
     if (checks.tifPngJpg) {
       tifPngJpg = evaluateTifPngJpgRules(result.items)
     }
@@ -280,6 +288,19 @@ export async function runLibraryCheck(
       "muted",
       "  Skipping PSD/TIF/PNG/JPG local rule suites (all disabled)."
     )
+  }
+
+  psdPngJpg = {
+    ...(checks.psdPngJpg && localSuiteEnabled
+      ? evaluatePsdPngJpgRules(result.items)
+      : {
+          rows: [],
+          psdCount: 0,
+          passCount: 0,
+          failCount: 0,
+          scopedRuleSummary: summarizePsdPsbScopedRuleFailures([]),
+        }),
+    inventory: countPsdPsbRenditionPairInventory(result.items),
   }
 
   const accessToken = process.env.FRONTIFY_ACCESS_TOKEN?.trim()

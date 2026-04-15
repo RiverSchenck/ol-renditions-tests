@@ -30,7 +30,11 @@ import { JpegRenditionWhiteBgRulePanel } from "@/components/jpeg-rendition-white
 import { JpgNeedsPngRulePanel } from "@/components/jpg-needs-png-rule-panel"
 import { MasterRenditionMetadataTargetsRulePanel } from "@/components/master-rendition-metadata-targets-rule-panel"
 import { PngNeedsJpegRulePanel } from "@/components/png-needs-jpeg-rule-panel"
-import { PsdPngJpgRulePanel } from "@/components/psd-png-jpg-rule-panel"
+import {
+  PsdPngJpgRulePanel,
+  PsdPsbRenditionInventoryCallout,
+  PsdPsbScopedRuleSummaryCallout,
+} from "@/components/psd-png-jpg-rule-panel"
 import { TifPngJpgRulePanel } from "@/components/tif-png-jpg-rule-panel"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -85,8 +89,8 @@ const SUITE_TOGGLE_ROWS: {
 }[] = [
   {
     key: "psdPngJpg",
-    title: "PSD / PSB — 1200px JPEG or PNG rendition",
-    hint: "Local GraphQL row scan only.",
+    title: "PSD / PSB — JPEG + PNG renditions",
+    hint: "Rule 1: …-rendition-jpeg-1200px / …-png-1200px + 1200px. Rule 2: …-rendition-jpeg / …-rendition-png. Local scan.",
   },
   {
     key: "tifPngJpg",
@@ -111,7 +115,7 @@ const SUITE_TOGGLE_ROWS: {
   {
     key: "masterRenditionMetadataTargets",
     title: "Master/rendition metadata + targets parity",
-    hint: "Local GraphQL row scan only. Fails if rendition metadata or targets differ from master.",
+    hint: "Parity only for renditions present in the load; missing renditions skipped. PSD/PSB scope matches PSD suite. Local scan.",
   },
   {
     key: "jpegRenditionWhiteBg",
@@ -786,10 +790,14 @@ export function LibraryCheckWorkspace() {
 
             {resultView === "psd" ? (
               phase.data.suitesSkipped.psdPngJpg ? (
-                <SkippedSuitePanel
-                  title="PSD / PSB suite skipped"
-                  description="This run did not evaluate PSD or PSB masters against 1200px JPEG/PNG renditions."
-                />
+                <div className="space-y-4">
+                  <SkippedSuitePanel
+                    title="PSD / PSB suite skipped"
+                    description="This run did not evaluate PSD or PSB masters against JPEG/PNG renditions."
+                  />
+                  <PsdPsbRenditionInventoryCallout inventory={phase.data.psdPngJpg.inventory} />
+                  <PsdPsbScopedRuleSummaryCallout summary={phase.data.psdPngJpg.scopedRuleSummary} />
+                </div>
               ) : (
                 <PsdPngJpgRulePanel
                   {...phase.data.psdPngJpg}

@@ -36,6 +36,10 @@ import type { EvaluateJpgNeedsPngRulesResult } from "@/lib/rules/jpg-needs-png"
 import type { EvaluateMasterRenditionMetadataTargetsRulesResult } from "@/lib/rules/master-rendition-metadata-targets"
 import type { EvaluatePngNeedsJpegRulesResult } from "@/lib/rules/png-needs-jpeg"
 import type { EvaluatePsdPngJpgRulesResult } from "@/lib/rules/psd-png-jpg"
+import {
+  PsdPsbRenditionInventoryCallout,
+  PsdPsbScopedRuleSummaryCallout,
+} from "@/components/psd-png-jpg-rule-panel"
 import type { EvaluateTifPngJpgRulesResult } from "@/lib/rules/tif-png-jpg"
 import {
   LIBRARY_SUITE_KEYS,
@@ -506,7 +510,13 @@ export function LibraryCheckOverview({
                   <SuiteOverviewEyebrow id="PSD-REND-1200" />
                   <CardTitle className="text-base">PSD / PSB</CardTitle>
                   <CardDescription className="text-pretty text-xs">
-                    Rendition check — 1200px long side, JPEG or PNG path.
+                    Rule 1:{" "}
+                    <code className="font-mono text-[10px]">{"{base}-rendition-jpeg-1200px"}</code> /{" "}
+                    <code className="font-mono text-[10px]">{"{base}-rendition-png-1200px"}</code>{" "}
+                    + 1200px long side. Rule 2:{" "}
+                    <code className="font-mono text-[10px]">{"{base}-rendition-jpeg"}</code> /{" "}
+                    <code className="font-mono text-[10px]">{"{base}-rendition-png"}</code>. Others
+                    N/A.
                   </CardDescription>
                 </div>
               </div>
@@ -545,7 +555,13 @@ export function LibraryCheckOverview({
               )}
             </div>
           </CardHeader>
-          <CardContent className="mt-auto pt-0">
+          <CardContent className="mt-auto space-y-3 pt-0">
+            {psdPngJpg.inventory.totalPsdPsbCount > 0 ? (
+              <PsdPsbRenditionInventoryCallout inventory={psdPngJpg.inventory} />
+            ) : null}
+            {!sk.psdPngJpg ? (
+              <PsdPsbScopedRuleSummaryCallout summary={psdPngJpg.scopedRuleSummary} />
+            ) : null}
             <Button
               type="button"
               variant="secondary"
@@ -852,8 +868,8 @@ export function LibraryCheckOverview({
                   <SuiteOverviewEyebrow id="MASTER-REND-META-TARGETS" />
                   <CardTitle className="text-base">Master/rendition parity</CardTitle>
                   <CardDescription className="text-pretty text-xs">
-                    For supported masters, rendition custom metadata and targets must
-                    match the master exactly.
+                    Metadata + targets for renditions that exist in the load; missing renditions
+                    skipped. PSD/PSB scope matches the PSD suite; other PSD/PSB N/A.
                   </CardDescription>
                 </div>
               </div>
